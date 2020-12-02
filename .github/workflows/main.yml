@@ -1,0 +1,77 @@
+# 通过 ACME 申请 Let's Encrypt 泛域名证书
+
+name: ACME
+on:
+  # 计划任务：https://crontab.guru/
+  schedule:
+    - cron: "16 2 * * *"
+  # 手动触发
+  workflow_dispatch:
+env:
+  ACME_DOMAIN: ${{secrets.ACME_DOMAIN}}
+  ACME_ACCOUNT_EMAIL: ${{secrets.ACME_ACCOUNT_EMAIL}}    
+  ACME_ACCOUNT_KEY_LENGTH: 4096  
+  ACME_DAYS: 60
+  ACME_DNS: dns_cf
+  ACME_DNS_SLEEP: 30
+  ACME_DNS_CONFIGURATION: ${{secrets.ACME_DNS_CONFIGURATION}}
+  ACME_RSA_KEY_LENGTH: 4096
+  ACME_ECC_KEY_LENGTH: ec-384
+  ACME_GIT_CONFIGURATION: ${{secrets.ACME_GIT_CONFIGURATION}}
+jobs:
+  ACME:
+    runs-on: ubuntu-latest
+    steps:
+      - name: '检出 acmesh-official/acme.sh 仓库'      
+        uses: actions/checkout@v2
+        with:
+          repository: acmesh-official/acme.sh
+          path: acme.sh
+          submodules: true
+      - name: '安装 acme.sh 脚本'
+        run: |
+          cd ${GITHUB_WORKSPACE}/acme.sh
+          ./acme.sh --install --no-color --nocron --noprofile --accountemail ${ACME_ACCOUNT_EMAIL} --accountkeylength ${ACME_ACCOUNT_KEY_LENGTH}
+          cd ${GITHUB_WORKSPACE}
+          echo "${HOME}/.acme.sh" >> ${GITHUB_PATH}
+      - name: '检查 acme.sh 版本'
+        run: acme.sh --version
+      - name: '导入 acme.sh 配置'
+        run: echo "${ACME_DNS_CONFIGURATION}" >> ${GITHUB_ENV}        
+      - name: '申请 RSA 证书'
+        run: acme.sh --issue --staging --no-color --force --ocsp --days ${ACME_DAYS} --dns ${ACME_DNS} --dnssleep ${ACME_DNS_SLEEP} --keylength ${ACME_RSA_KEY_LENGTH} --domain *.${ACME_DOMAIN} --domain ${ACME_DOMAIN}
+      - name: '申请 ECC 证书'
+        run: acme.sh --issue --staging --no-color --force --ocsp --days ${ACME_DAYS} --dns ${ACME_DNS} --dnssleep ${ACME_DNS_SLEEP} --keylength ${ACME_ECC_KEY_LENGTH} --domain *.${ACME_DOMAIN} --domain ${ACME_DOMAIN}
+      - name: '准备发布'
+        run: mkdir --parents ${GITHUB_WORKSPACE}/${ACME_DOMAIN}     
+      - name: '复制 RSA 证书'
+        run: acme.sh --install-cert --no-color --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.fullchain.pem
+      - name: '复制 ECC 证书'
+        run: acme.sh --install-cert --no-color --ecc --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.fullchain.pem
+      - name: '打包证书'
+        run: zip --junk-paths ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.zip ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/*.pem
+      - name: '生成预发布信息'
+        id: pre_release
+        run: |
+          echo "::set-output name=TAG::v$(date +'%Y%m%d').${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}"
+          echo "::set-output name=RELEASE::${ACME_DOMAIN}.$(date +'%Y%m%d').${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}"
+          echo "::set-output name=ASSET_PATH::${GITHUB_WORKSPACE}/${ACME_DOMAIN}.zip"
+          echo "::set-output name=ASSET_NAME::${ACME_DOMAIN}.zip"     
+      - name: '创建发布'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{steps.pre_release.outputs.TAG}}
+          release_name: ${{steps.pre_release.outputs.RELEASE}}
+      - name: '上传发布'
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{steps.pre_release.outputs.ASSET_PATH}}
+          asset_name: ${{steps.pre_release.outputs.ASSET_NAME}}
+          asset_content_type: application/zip
