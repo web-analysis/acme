@@ -1,6 +1,6 @@
 # acme
 
-使用定时触发的 Actions 通过 [acme.sh](https://github.com/acmesh-official/acme.sh) 自动申请 Let's Encrypt 证书，同时支持 RSA 证书与 ECC 证书。
+使用定时触发的工作流通过 [acme.sh](https://github.com/acmesh-official/acme.sh) 自动申请 Let's Encrypt 证书，同时支持 RSA 证书与 ECC 证书。
 
 ## 服用方式
 
@@ -26,7 +26,7 @@
 | 名称 | 默认值 | 说明 |
 |--|--|--|
 | cron | 16 2 * * * | Actions 自动触发时间，可使用 [https://crontab.guru/](https://crontab.guru/) 快速调整 |
-| workflow_dispatch |  | 添加此节点后，可以手工触发 Actions |
+| workflow_dispatch |  | 添加此节点后，可以手工触发工作流 |
 | ACME_ACCOUNT_KEY_LENGTH | 4096 | acme.sh 创建账户时使用的密钥长度 |
 | ACME_DAYS | 60 | 证书有效时间，最大可以是 90 天 |
 | ACME_DNS | dns_cf | 请参照 [dnsapi](https://github.com/acmesh-official/acme.sh/wiki/dnsapi) 文档进行配置 |
@@ -48,4 +48,18 @@
 
 ## 发布展示
 
-请查看 [Release](https://github.com/sduo/acme/releases) 页查看
+请跳转 [Release](https://github.com/sduo/acme/releases) 页查看，当前设置是每日 02:16 触发工作流
+
+## 进阶使用
+
+1. 解耦了证书申请过程与证书部署过程
+
+    通过 Release 的方式，分离了证书的申请与部署过程。特别是针对泛域名证书在多机器部署的这种情况，可以通过后续工作流来捕获 Release 事件实现快速部署。
+    
+2. 关于远端 SSH 操作的设想
+
+    一直没有在市场中找到比较好用（纯净）的 SSH 组件，而官方也没有推出 SSH 组件。也不想用 WebHook 的方式去触发远端流程。在这个前提下，后续打算使用 self-hosted runner 的方式来执行部署过程，目前来看至少有两个方面的好处，一是减少了第三方组件的依赖，二是对于敏感信息的保护看起来也更安全。缺点就是部署起来比较重？（PS：我个人觉得还好，现在单位在用的也是 CI/CD 独立的框架，CI 生成，推送事件给 CD，再由 CD 拉取后，完成部署）
+
+3. 关于生成证书的保护
+
+    可能有人会说生成的证书就这样直接发布了，会带来安全上的隐患。有个叫 ```openssl``` 的东西，我想说它是可以对二进制文件进行加密、解密的。这个可根据实际情况再酌情配置，其实设置一个私有仓库就能避免绝大多数安全隐患了。
