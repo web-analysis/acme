@@ -17,18 +17,15 @@
 > 因为使用了 Secrets 的方式，所以 ACME_DNS_CONFIGURATION 的格式需要稍作修改，此处提供 cloudflare 示例：
 >
 > ```
->
 > CF_Email = ********
->
 > CF_Key = **********
->
 > ```
 
 2. (可选)按照需求配置 acme.yml 脚本中证书申请的相关参数
 
 | 名称 | 默认值 | 说明 |
 |--|--|--|
-| cron | 16 2 * * * | Actions 自动触发时间，[https://crontab.guru/](https://crontab.guru/) |
+| cron | 16 2 * * * | Actions 自动触发时间，可使用 [https://crontab.guru/](https://crontab.guru/) 快速调整 |
 | workflow_dispatch |  | 添加此节点后，可以手工触发 Actions |
 | ACME_ACCOUNT_KEY_LENGTH | 4096 | acme.sh 创建账户时使用的密钥长度 |
 | ACME_DAYS | 60 | 证书有效时间，最大可以是 90 天 |
@@ -45,3 +42,10 @@
 | RELEASE | ${ACME_DOMAIN}.$(date +'%Y%m%d').${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER} | 发布标题 |
 | ASSET_NAME | ${ACME_DOMAIN}.zip | 发布的 Asset 名称 |
 
+## 注意
+
+因接口限制的关系，演示脚本中使用的是 ```staging``` ，正式使用请移除 ```申请 RSA 证书``` 与 ```申请 ECC 证书``` 节点的 ```--staging``` 参数！
+
+## 发布展示
+
+请查看 [Release](https://github.com/sduo/acme/releases) 页查看
